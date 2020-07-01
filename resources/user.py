@@ -4,6 +4,9 @@ from flask import jsonify, make_response
 import traceback
 from server import db
 from models import UserModel
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 parser = reqparse.RequestParser()
 parser.add_argument("name")
@@ -11,9 +14,11 @@ parser.add_argument("gender")
 parser.add_argument("birth")
 parser.add_argument("note")
 
+#註解掉的部份是使用非sqlalchemy方式對資料庫進行CRUD功能
+
 class User(Resource):
     def db_init(self):
-        db = pymysql.connect("localhost", "root", "passWord854", "api")
+        db = pymysql.connect(os.getenv("DB_HOST"),os.getenv("DB_USER"),os.getenv("DB_PASSWORD"),os.getenv("DB_SCHEMA"))
         cursor = db.cursor(pymysql.cursors.DictCursor)
         return db, cursor
     
@@ -28,48 +33,57 @@ class User(Resource):
         return jsonify({"data": user})
 
     def patch(self, id):
-        db, cursor = self.db_init()
+        # db, cursor = self.db_init()
         arg = parser.parse_args()
-        user = {
-            "name": arg["name"],
-            "gender": arg["gender"],
-            "birth": arg["birth"],
-            "note": arg["note"],
-        }
-        query = []
-        for key, value in user.items():
-            if value != None:
-                query.append(key + "=" + "'{}'".format(value))
-        query = ",".join(query)
-        sql = """
-            UPDATE `api`.`users` SET {} WHERE (`id` = '{}');
-            """.format(query, id)
+        # user = {
+        #     "name": arg["name"],
+        #     "gender": arg["gender"],
+        #     "birth": arg["birth"],
+        #     "note": arg["note"],
+        # }
+        # query = []
+        # for key, value in user.items():
+        #     if value != None:
+        #         query.append(key + "=" + "'{}'".format(value))
+        # query = ",".join(query)
+        # sql = """
+        #     UPDATE `api`.`users` SET {} WHERE (`id` = '{}');
+        #     """.format(query, id)
+        user = UserModel.query.filter_by(id=id, deleted=None).first()
+        if arg["name"] != None:
+            user.name = arg["name"]
+
         response = {}
         try:
-            cursor.execute(sql)
+            # cursor.execute(sql)
+            db.session.commit()
             response["msg"] = "success"
         except:
             traceback.print_exc()
             response["msg"] = "failed"
-        db.commit()
-        db.close()
+        # db.commit()
+        # db.close()
         return jsonify(response)
 
     def delete(self, id):
-        db, cursor = self.db_init()
-        sql = """
-            UPDATE `api`.`users` SET deleted = True WHERE (`id` = '{}');
-        """.format(id)
+        # db, cursor = self.db_init()
+        # sql = """
+        #     UPDATE `api`.`users` SET deleted = True WHERE (`id` = '{}');
+        # """.format(id)
+        user = UserModel.query.filter_by(id=id, deleted=None).first()
+
         response = {}
         try:
-            cursor.execute(sql)
+            # cursor.execute(sql)
+            db.session.delete(user)
+            db.session.commit()
             response["msg"] = "success"
         except:
             traceback.print_exc()
             response["msg"] = "failed"
         
-        db.commit()
-        db.close()
+        # db.commit()
+        # db.close()
         return jsonify(response)
 
 class Users(Resource):
